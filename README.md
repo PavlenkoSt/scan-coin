@@ -2,19 +2,47 @@
 
 Simple Expo app for coin identification + collection tracking.
 
-## Current status
-- ✅ Planning docs
-- ✅ Expo app initialized properly
-- ✅ Core architecture (Expo Router + Zustand + React Query)
-- ✅ Scan flow (pick image -> analyze -> save)
-- ✅ Collection flow (list + coin details)
+## Status
+- ✅ Planning complete
+- ✅ Implementation complete
+- ✅ Review/fixes complete
+- ✅ Test-ready MVP on `main`
+
+## Features
+- Pick coin image from gallery
+- Analyze coin (mock provider by default)
+- Save results to local collection
+- Search collection by country/denomination/year
+- Open saved coin details with estimate + confidence
+
+## Tech
+- Expo + React Native + TypeScript
+- Expo Router
+- Zustand + AsyncStorage
+- TanStack Query
 
 ## Run locally
 ```bash
 npm install --include=dev --legacy-peer-deps
+cp .env.example .env
 npm run start
 ```
 
-## Notes
-- Current identification logic is mocked (`src/services/coinIdentifier.ts`) for MVP UI/flow validation.
-- Next step: connect real identification backend/model endpoint.
+## Provider configuration
+Environment variables:
+- `EXPO_PUBLIC_COIN_PROVIDER=mock|remote`
+- `EXPO_PUBLIC_API_BASE_URL` (required only for `remote`)
+
+Default is `mock` for immediate testing.
+
+## QA checks
+```bash
+npx tsc --noEmit
+npx expo-doctor
+```
+
+## Docs
+- `docs/01_mvp_spec.md`
+- `docs/02_tech_plan.md`
+- `docs/03_qa_report.md`
+- `docs/04_release_plan.md`
