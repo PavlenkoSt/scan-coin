@@ -20,7 +20,15 @@ export default function ScanScreen() {
     onError: () => Alert.alert('Scan failed', 'Please try another photo.'),
   });
 
-  const pickImage = async () => {
+  const applyPickedAsset = (asset: ImagePicker.ImagePickerAsset) => {
+    setImageUri(asset.uri);
+    setImageBase64(asset.base64 ?? undefined);
+    setMimeType(asset.mimeType ?? 'image/jpeg');
+    setSavedCoinId(null);
+    mutation.reset();
+  };
+
+  const pickFromGallery = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission required', 'Please allow photo library access to select a coin image.');
@@ -33,13 +41,27 @@ export default function ScanScreen() {
       base64: true,
     });
 
-    if (!result.canceled && result.assets[0]?.uri) {
-      const asset = result.assets[0];
-      setImageUri(asset.uri);
-      setImageBase64(asset.base64 ?? undefined);
-      setMimeType(asset.mimeType ?? 'image/jpeg');
-      setSavedCoinId(null);
-      mutation.reset();
+    if (!result.canceled && result.assets[0]) {
+      applyPickedAsset(result.assets[0]);
+    }
+  };
+
+  const captureWithCamera = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Please allow camera access to scan coins.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      base64: true,
+      cameraType: ImagePicker.CameraType.back,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      applyPickedAsset(result.assets[0]);
     }
   };
 
@@ -65,7 +87,16 @@ export default function ScanScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Button title="Pick coin image" onPress={pickImage} />
+      <Text style={styles.hint}>Tip: center the coin and use good lighting for better results.</Text>
+
+      <View style={styles.row}>
+        <View style={styles.buttonWrap}>
+          <Button title="Open camera" onPress={captureWithCamera} />
+        </View>
+        <View style={styles.buttonWrap}>
+          <Button title="Choose from gallery" onPress={pickFromGallery} />
+        </View>
+      </View>
 
       {imageUri ? <Image source={{ uri: imageUri }} style={styles.image} /> : <Text style={styles.hint}>No image selected yet.</Text>}
 
@@ -105,6 +136,13 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  buttonWrap: {
+    flex: 1,
   },
   image: {
     width: '100%',

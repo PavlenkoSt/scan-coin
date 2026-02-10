@@ -8,22 +8,42 @@ type OpenAICoinResult = {
   confidence: 'low' | 'medium' | 'high';
 };
 
-const SYSTEM_PROMPT = `You identify coins from images.
-Return ONLY valid JSON with keys:
-country, denomination, year, estimatedValueMin, estimatedValueMax, currency, confidence.
-confidence must be one of: low, medium, high.
-estimated values should be realistic rough ranges, not exact guarantees.`;
+const MAX_BASE64_BYTES = 4_000_000; // ~4MB raw payload safety cap
+
+const SYSTEM_PROMPT = `You are a conservative coin identification assistant.
+Use the image to infer likely coin identity and a rough value range.
+Rules:
+1) If uncertain, use "Unknown" fields and confidence "low".
+2) Never output guaranteed prices. Provide broad realistic ranges.
+3) Year should be a string. Use "N/A" if unreadable.
+4) Currency must be a 3-letter code when possible (USD, EUR, CAD, etc.).
+5) Return JSON only.`;
+
+function clampNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Number(n.toFixed(2));
+}
 
 function normalizeResult(raw: any): OpenAICoinResult {
-  const confidence = ['low', 'medium', 'high'].includes(raw?.confidence) ? raw.confidence : 'low';
+  const confidence: OpenAICoinResult['confidence'] = ['low', 'medium', 'high'].includes(raw?.confidence)
+    ? raw.confidence
+    : 'low';
+
+  const min = clampNumber(raw?.estimatedValueMin, 0);
+  const maxCandidate = clampNumber(raw?.estimatedValueMax, min);
+  const max = maxCandidate >= min ? maxCandidate : min;
+
+  const currencyRaw = String(raw?.currency ?? 'USD').trim().toUpperCase();
+  const currency = /^[A-Z]{3}$/.test(currencyRaw) ? currencyRaw : 'USD';
 
   return {
-    country: String(raw?.country ?? 'Unknown'),
-    denomination: String(raw?.denomination ?? 'Unknown Coin'),
-    year: String(raw?.year ?? 'N/A'),
-    estimatedValueMin: Number(raw?.estimatedValueMin ?? 0),
-    estimatedValueMax: Number(raw?.estimatedValueMax ?? 0),
-    currency: String(raw?.currency ?? 'USD'),
+    country: String(raw?.country ?? 'Unknown').slice(0, 80),
+    denomination: String(raw?.denomination ?? 'Unknown Coin').slice(0, 80),
+    year: String(raw?.year ?? 'N/A').slice(0, 20),
+    estimatedValueMin: min,
+    estimatedValueMax: max,
+    currency,
     confidence,
   };
 }
@@ -44,7 +64,7 @@ async function callOpenAI(imageDataUrl: string): Promise<OpenAICoinResult> {
     },
     body: JSON.stringify({
       model,
-      temperature: 0.2,
+      temperature: 0.1,
       response_format: { type: 'json_object' },
       messages: [
         {
@@ -54,7 +74,10 @@ async function callOpenAI(imageDataUrl: string): Promise<OpenAICoinResult> {
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'Identify this coin and estimate value range.' },
+            {
+              type: 'text',
+              text: 'Identify this coin and estimate a rough value range. Return JSON only.',
+            },
             { type: 'image_url', image_url: { url: imageDataUrl } },
           ],
         },
@@ -94,6 +117,12 @@ export default async function handler(req: any, res: any) {
 
     if (!imageBase64 || typeof imageBase64 !== 'string') {
       return res.status(400).json({ error: 'imageBase64 is required' });
+    }
+
+    // Rough decoded size check to protect function memory/time.
+    const approxBytes = Math.ceil((imageBase64.length * 3) / 4);
+    if (approxBytes > MAX_BASE64_BYTES) {
+      return res.status(413).json({ error: 'image_too_large', message: 'Please upload a smaller image.' });
     }
 
     const safeMimeType = typeof mimeType === 'string' ? mimeType : 'image/jpeg';
