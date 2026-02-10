@@ -142,54 +142,55 @@ export default function ScanScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.hint}>Tip: capture both sides in good lighting for better identification.</Text>
+      <Text style={styles.pageTitle}>Scan</Text>
+      <Text style={styles.hint}>Capture both sides in good lighting for better identification.</Text>
 
-      <Text style={styles.sectionTitle}>Front (Obverse) — required</Text>
-      <View style={styles.row}>
-        <View style={styles.buttonWrap}>
-          <Button title="Camera (front)" onPress={() => captureWithCamera('obverse')} />
+      <View style={styles.block}>
+        <Text style={styles.sectionTitle}>Front (Obverse) — required</Text>
+        <View style={styles.row}>
+          <View style={styles.buttonWrap}>
+            <Button title="Camera (front)" onPress={() => captureWithCamera('obverse')} />
+          </View>
+          <View style={styles.buttonWrap}>
+            <Button title="Gallery (front)" onPress={() => pickFromGallery('obverse')} />
+          </View>
         </View>
-        <View style={styles.buttonWrap}>
-          <Button title="Gallery (front)" onPress={() => pickFromGallery('obverse')} />
-        </View>
+        {obverse ? <Image source={{ uri: obverse.uri }} style={styles.image} /> : <Text style={styles.hint}>No front image selected.</Text>}
       </View>
-      {obverse ? <Image source={{ uri: obverse.uri }} style={styles.image} /> : <Text style={styles.hint}>No front image selected.</Text>}
 
-      <Text style={styles.sectionTitle}>Back (Reverse) — optional but recommended</Text>
-      <View style={styles.row}>
-        <View style={styles.buttonWrap}>
-          <Button title="Camera (back)" onPress={() => captureWithCamera('reverse')} />
+      <View style={styles.block}>
+        <Text style={styles.sectionTitle}>Back (Reverse) — optional</Text>
+        <View style={styles.row}>
+          <View style={styles.buttonWrap}>
+            <Button title="Camera (back)" onPress={() => captureWithCamera('reverse')} />
+          </View>
+          <View style={styles.buttonWrap}>
+            <Button title="Gallery (back)" onPress={() => pickFromGallery('reverse')} />
+          </View>
         </View>
-        <View style={styles.buttonWrap}>
-          <Button title="Gallery (back)" onPress={() => pickFromGallery('reverse')} />
-        </View>
+        {reverse ? <Image source={{ uri: reverse.uri }} style={styles.image} /> : <Text style={styles.hint}>No back image selected.</Text>}
       </View>
-      {reverse ? <Image source={{ uri: reverse.uri }} style={styles.image} /> : <Text style={styles.hint}>No back image selected.</Text>}
 
       <Button title={mutation.isPending ? 'Analyzing...' : 'Analyze coin'} onPress={analyze} disabled={!obverse || mutation.isPending} />
-
       {mutation.isPending ? <Text style={styles.hint}>Analyzing image(s)…</Text> : null}
 
       {mutation.data ? (
         <View style={styles.result}>
           <Text style={styles.resultTitle}>Result</Text>
-          <Text>{mutation.data.country}</Text>
-          <Text>{mutation.data.denomination}</Text>
-          <Text>{mutation.data.year}</Text>
-          <Text>
+          <Text style={styles.resultLine}>{mutation.data.country}</Text>
+          <Text style={styles.resultLine}>{mutation.data.denomination}</Text>
+          <Text style={styles.resultLine}>{mutation.data.year}</Text>
+          <Text style={styles.resultLine}>
             {mutation.data.estimatedValueMin} - {mutation.data.estimatedValueMax} {mutation.data.currency}
           </Text>
-          <Text>Confidence: {mutation.data.confidence}</Text>
+          <Text style={styles.resultLine}>Confidence: {mutation.data.confidence}</Text>
           <Text style={styles.disclaimer}>Estimate only — not a professional appraisal.</Text>
           <View style={{ height: 12 }} />
           <Button title={savedCoinId ? 'Saved' : 'Save to collection'} onPress={save} disabled={!!savedCoinId} />
 
           {savedCoinId ? (
             <View style={{ marginTop: 12 }}>
-              <Button
-                title="Open saved coin"
-                onPress={() => router.push({ pathname: '/coin/[id]', params: { id: savedCoinId } })}
-              />
+              <Button title="Open saved coin" onPress={() => router.push({ pathname: '/coin/[id]', params: { id: savedCoinId } })} />
             </View>
           ) : null}
         </View>
@@ -202,6 +203,20 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 12,
+    backgroundColor: '#0b1220',
+  },
+  pageTitle: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  block: {
+    backgroundColor: '#111827',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    padding: 12,
+    gap: 10,
   },
   row: {
     flexDirection: 'row',
@@ -211,33 +226,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionTitle: {
+    color: '#fff',
     fontWeight: '700',
-    marginTop: 6,
   },
   image: {
     width: '100%',
     height: 220,
     borderRadius: 12,
-    backgroundColor: '#eee',
+    backgroundColor: '#1f2937',
   },
   hint: {
-    color: '#6b7280',
+    color: '#94a3b8',
   },
   result: {
-    backgroundColor: '#f9fafb',
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: '#111827',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#1f2937',
+    padding: 12,
     gap: 4,
   },
   resultTitle: {
-    fontWeight: '700',
+    color: '#fff',
+    fontWeight: '800',
     marginBottom: 6,
+  },
+  resultLine: {
+    color: '#e5e7eb',
   },
   disclaimer: {
     marginTop: 6,
-    color: '#6b7280',
+    color: '#9ca3af',
     fontSize: 12,
   },
 });

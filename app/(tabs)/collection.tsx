@@ -20,28 +20,40 @@ export default function CollectionScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>My Collection</Text>
+      <Text style={styles.subtitle}>{coins.length} saved coin{coins.length === 1 ? '' : 's'}</Text>
 
       <TextInput
         value={query}
         onChangeText={setQuery}
         placeholder="Search by country, denomination, year"
+        placeholderTextColor="#94a3b8"
         style={styles.search}
       />
 
       {coins.length === 0 ? (
-        <Text style={styles.empty}>No coins saved yet. Scan your first coin.</Text>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No coins yet</Text>
+          <Text style={styles.emptyText}>Go to Scan and add your first coin.</Text>
+        </View>
       ) : filteredCoins.length === 0 ? (
-        <Text style={styles.empty}>No results found for “{query}”.</Text>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No matches</Text>
+          <Text style={styles.emptyText}>Nothing found for “{query}”.</Text>
+        </View>
       ) : (
         <FlatList
           data={filteredCoins}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <Link href={{ pathname: '/coin/[id]', params: { id: item.id } }} style={styles.row}>
-              {item.country || 'Unknown'} • {item.denomination || 'Coin'} • {item.year || 'N/A'}
+              <Text style={styles.rowTitle}>{item.country || 'Unknown coin'}</Text>
+              <Text style={styles.rowMeta}>
+                {item.denomination || 'Coin'} • {item.year || 'N/A'} • {item.confidence}
+              </Text>
             </Link>
           )}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          contentContainerStyle={{ paddingBottom: 20 }}
         />
       )}
     </View>
@@ -51,28 +63,61 @@ export default function CollectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0b1220',
     padding: 16,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  subtitle: {
+    color: '#94a3b8',
+    marginTop: 4,
     marginBottom: 12,
   },
   search: {
+    backgroundColor: '#111827',
+    color: '#fff',
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 10,
+    borderColor: '#1f2937',
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 12,
   },
-  empty: {
-    color: '#666',
+  emptyCard: {
+    marginTop: 10,
+    backgroundColor: '#111827',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    padding: 14,
+    gap: 4,
+  },
+  emptyTitle: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  emptyText: {
+    color: '#9ca3af',
   },
   row: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 10,
-    padding: 12,
-    color: '#111827',
+    backgroundColor: '#111827',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    padding: 14,
+    gap: 4,
+  },
+  rowTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  rowMeta: {
+    color: '#9ca3af',
+    fontSize: 13,
   },
 });
