@@ -1,4 +1,4 @@
-import { Confidence } from '../types/coin';
+import { Confidence } from "../types/coin";
 
 export type CoinSideImage = {
   imageUri: string;
@@ -23,70 +23,74 @@ export type CoinIdentificationResult = {
 
 const mockCatalog: CoinIdentificationResult[] = [
   {
-    country: 'United States',
-    denomination: 'Quarter Dollar',
-    year: '1999',
+    country: "United States",
+    denomination: "Quarter Dollar",
+    year: "1999",
     estimatedValueMin: 0.25,
     estimatedValueMax: 2.5,
-    currency: 'USD',
-    confidence: 'medium',
+    currency: "USD",
+    confidence: "medium",
   },
   {
-    country: 'Canada',
-    denomination: '1 Dollar (Loonie)',
-    year: '2005',
+    country: "Canada",
+    denomination: "1 Dollar (Loonie)",
+    year: "2005",
     estimatedValueMin: 1,
     estimatedValueMax: 4,
-    currency: 'CAD',
-    confidence: 'medium',
+    currency: "CAD",
+    confidence: "medium",
   },
   {
-    country: 'Eurozone',
-    denomination: '2 Euro',
-    year: '2012',
+    country: "Eurozone",
+    denomination: "2 Euro",
+    year: "2012",
     estimatedValueMin: 2,
     estimatedValueMax: 8,
-    currency: 'EUR',
-    confidence: 'low',
+    currency: "EUR",
+    confidence: "low",
   },
 ];
 
 function normalizeApiResult(data: any): CoinIdentificationResult {
   return {
-    country: data?.country ?? 'Unknown',
-    denomination: data?.denomination ?? 'Unknown Coin',
-    year: String(data?.year ?? 'N/A'),
+    country: data?.country ?? "Unknown",
+    denomination: data?.denomination ?? "Unknown Coin",
+    year: String(data?.year ?? "N/A"),
     estimatedValueMin: Number(data?.estimatedValueMin ?? 0),
     estimatedValueMax: Number(data?.estimatedValueMax ?? 0),
-    currency: data?.currency ?? 'USD',
-    confidence: (data?.confidence as Confidence) ?? 'low',
+    currency: data?.currency ?? "USD",
+    confidence: (data?.confidence as Confidence) ?? "low",
   };
 }
 
-async function identifyCoinRemote(input: CoinIdentificationInput): Promise<CoinIdentificationResult> {
+async function identifyCoinRemote(
+  input: CoinIdentificationInput,
+): Promise<CoinIdentificationResult> {
   const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL;
+  console.log("apiBase", apiBase);
+
   if (!apiBase) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL is not set');
+    throw new Error("EXPO_PUBLIC_API_BASE_URL is not set");
   }
 
   if (!input.obverse.imageBase64) {
-    throw new Error('obverse.imageBase64 is required for remote provider');
+    throw new Error("obverse.imageBase64 is required for remote provider");
   }
 
   const response = await fetch(`${apiBase}/api/identify-coin`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       obverse: {
         imageBase64: input.obverse.imageBase64,
-        mimeType: input.obverse.mimeType ?? 'image/jpeg',
+        mimeType: input.obverse.mimeType ?? "image/jpeg",
       },
       reverse: input.reverse?.imageBase64
         ? {
             imageBase64: input.reverse.imageBase64,
-            mimeType: input.reverse.mimeType ?? 'image/jpeg',
+            mimeType: input.reverse.mimeType ?? "image/jpeg",
           }
         : undefined,
     }),
@@ -100,7 +104,9 @@ async function identifyCoinRemote(input: CoinIdentificationInput): Promise<CoinI
   return normalizeApiResult(data);
 }
 
-async function identifyCoinMock(input: CoinIdentificationInput): Promise<CoinIdentificationResult> {
+async function identifyCoinMock(
+  input: CoinIdentificationInput,
+): Promise<CoinIdentificationResult> {
   await new Promise((resolve) => setTimeout(resolve, 900));
 
   const reverseBonus = input.reverse?.imageUri ? 17 : 0;
@@ -108,10 +114,14 @@ async function identifyCoinMock(input: CoinIdentificationInput): Promise<CoinIde
   return mockCatalog[hash % mockCatalog.length];
 }
 
-export async function identifyCoin(input: CoinIdentificationInput): Promise<CoinIdentificationResult> {
-  const provider = (process.env.EXPO_PUBLIC_COIN_PROVIDER ?? 'mock').toLowerCase();
+export async function identifyCoin(
+  input: CoinIdentificationInput,
+): Promise<CoinIdentificationResult> {
+  const provider = (
+    process.env.EXPO_PUBLIC_COIN_PROVIDER ?? "mock"
+  ).toLowerCase();
 
-  if (provider === 'remote') {
+  if (provider === "remote") {
     return identifyCoinRemote(input);
   }
 
