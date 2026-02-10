@@ -136,13 +136,19 @@ export default async function handler(req: any, res: any) {
     const result = await callOpenAI(obverseDataUrl, reverseDataUrl);
     return res.status(200).json(result);
   } catch (error: any) {
-    if (String(error?.message || '').includes('image_too_large')) {
+    const msg = String(error?.message || 'Unknown error');
+
+    if (msg.includes('image_too_large')) {
       return res.status(413).json({ error: 'image_too_large', message: 'Please upload a smaller image.' });
+    }
+
+    if (msg.includes('insufficient_quota')) {
+      return res.status(429).json({ error: 'insufficient_quota', message: 'OpenAI quota exceeded. Check API billing/credits.' });
     }
 
     return res.status(500).json({
       error: 'identify_failed',
-      message: error?.message || 'Unknown error',
+      message: msg,
     });
   }
 }

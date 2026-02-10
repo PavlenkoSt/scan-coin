@@ -37,7 +37,8 @@
           "photosPermission": "Allow access to your photos to import coin images.",
           "cameraPermission": "Allow camera access to scan coins."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

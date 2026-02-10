@@ -60,12 +60,19 @@ export default function ScanScreen() {
     },
     onError: async (error: any) => {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      const message = String(error?.message || '');
-      if (message.includes('(413)')) {
+      const message = String(error?.message || 'Scan failed. Please try another photo.');
+
+      if (message.toLowerCase().includes('quota')) {
+        Alert.alert('OpenAI quota issue', message);
+        return;
+      }
+
+      if (message.toLowerCase().includes('image too large')) {
         Alert.alert('Image too large', 'Please retake with better framing or use lower resolution image.');
         return;
       }
-      Alert.alert('Scan failed', 'Please try another photo.');
+
+      Alert.alert('Scan failed', message);
     },
   });
 

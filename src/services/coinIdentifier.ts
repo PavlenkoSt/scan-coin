@@ -63,11 +63,26 @@ function normalizeApiResult(data: any): CoinIdentificationResult {
   };
 }
 
+function mapRemoteError(status: number, payload: any): string {
+  const message = String(payload?.message || payload?.error || "");
+
+  if (status === 401)
+    return "Backend authentication failed (401). Check Vercel deployment protection.";
+  if (status === 413) return "Image too large (413). Try a smaller photo.";
+  if (status === 429 || message.includes("insufficient_quota")) {
+    return "OpenAI quota exceeded. Please check API billing/credits.";
+  }
+  if (status === 500 && message.includes("insufficient_quota")) {
+    return "OpenAI quota exceeded. Please check API billing/credits.";
+  }
+
+  return `Remote identify failed (${status})`;
+}
+
 async function identifyCoinRemote(
   input: CoinIdentificationInput,
 ): Promise<CoinIdentificationResult> {
   const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL;
-  console.log("apiBase", apiBase);
 
   if (!apiBase) {
     throw new Error("EXPO_PUBLIC_API_BASE_URL is not set");
@@ -97,7 +112,14 @@ async function identifyCoinRemote(
   });
 
   if (!response.ok) {
-    throw new Error(`Remote identify failed (${response.status})`);
+    let payload: any = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+
+    throw new Error(mapRemoteError(response.status, payload));
   }
 
   const data = await response.json();
