@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useCollectionStore } from '../../src/store/collectionStore';
 
 function confidenceColor(conf: string) {
@@ -52,16 +52,17 @@ export default function CollectionScreen() {
           data={filteredCoins}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <Link href={{ pathname: '/coin/[id]', params: { id: item.id } }} style={styles.row}>
-              <Text style={styles.rowTitle}>{item.country || 'Unknown coin'}</Text>
-              <View style={styles.metaRow}>
-                <Text style={styles.rowMeta}>
-                  {item.denomination || 'Coin'} • {item.year || 'N/A'}
-                </Text>
-                <Text style={[styles.confidencePill, { borderColor: confidenceColor(item.confidence), color: confidenceColor(item.confidence) }]}>
-                  {item.confidence.toUpperCase()}
-                </Text>
-              </View>
+            <Link href={{ pathname: '/coin/[id]', params: { id: item.id } }} asChild>
+              <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+                <Text style={styles.rowTitle}>{item.country || 'Unknown coin'}</Text>
+                <Text style={styles.rowMeta}>{item.denomination || 'Coin'} • {item.year || 'N/A'}</Text>
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Confidence</Text>
+                  <Text style={[styles.confidencePill, { borderColor: confidenceColor(item.confidence), color: confidenceColor(item.confidence) }]}>
+                    {item.confidence.toUpperCase()}
+                  </Text>
+                </View>
+              </Pressable>
             </Link>
           )}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
@@ -121,7 +122,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1f2937',
     padding: 14,
-    gap: 4,
+    gap: 8,
+  },
+  rowPressed: {
+    opacity: 0.85,
   },
   rowTitle: {
     color: '#fff',
@@ -137,6 +141,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  metaLabel: {
+    color: '#94a3b8',
+    fontSize: 12,
   },
   confidencePill: {
     borderWidth: 1,
