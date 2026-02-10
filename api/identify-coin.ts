@@ -1,4 +1,4 @@
-type OpenAICoinResult = {
+type CoinResult = {
   country: string;
   denomination: string;
   year: string;
@@ -23,7 +23,7 @@ Rules:
 2) Never output guaranteed prices. Provide broad realistic ranges.
 3) Year should be a string. Use "N/A" if unreadable.
 4) Currency must be a 3-letter code when possible (USD, EUR, CAD, etc.).
-5) Return JSON only.`;
+5) Return JSON only with keys: country, denomination, year, estimatedValueMin, estimatedValueMax, currency, confidence.`;
 
 function clampNumber(value: unknown, fallback = 0): number {
   const n = Number(value);
@@ -31,8 +31,8 @@ function clampNumber(value: unknown, fallback = 0): number {
   return Number(n.toFixed(2));
 }
 
-function normalizeResult(raw: any): OpenAICoinResult {
-  const confidence: OpenAICoinResult['confidence'] = ['low', 'medium', 'high'].includes(raw?.confidence)
+function normalizeResult(raw: any): CoinResult {
+  const confidence: CoinResult['confidence'] = ['low', 'medium', 'high'].includes(raw?.confidence)
     ? raw.confidence
     : 'low';
 
@@ -54,70 +54,83 @@ function normalizeResult(raw: any): OpenAICoinResult {
   };
 }
 
-async function callOpenAI(obverseDataUrl: string, reverseDataUrl?: string): Promise<OpenAICoinResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY is not set');
-
-  const model = process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini';
-
-  const content: any[] = [
-    {
-      type: 'text',
-      text: reverseDataUrl
-        ? 'Identify this coin from both sides (obverse and reverse) and estimate a rough value range. Return JSON only.'
-        : 'Identify this coin and estimate a rough value range. Return JSON only.',
-    },
-    { type: 'image_url', image_url: { url: obverseDataUrl } },
-  ];
-
-  if (reverseDataUrl) {
-    content.push({ type: 'image_url', image_url: { url: reverseDataUrl } });
-  }
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.1,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`OpenAI error ${response.status}: ${errText}`);
-  }
-
-  const data = await response.json();
-  const msg = data?.choices?.[0]?.message?.content;
-  if (!msg || typeof msg !== 'string') throw new Error('No JSON content returned by OpenAI');
-
-  let parsed: any;
-  try {
-    parsed = JSON.parse(msg);
-  } catch {
-    throw new Error('Failed to parse JSON from OpenAI output');
-  }
-
-  return normalizeResult(parsed);
-}
-
-function toDataUrl(image: InputImage): string {
+function checkSize(image: InputImage) {
   const approxBytes = Math.ceil((image.imageBase64.length * 3) / 4);
   if (approxBytes > MAX_BASE64_BYTES) {
     throw new Error('image_too_large');
   }
+}
 
-  const safeMimeType = typeof image.mimeType === 'string' ? image.mimeType : 'image/jpeg';
-  return `data:${safeMimeType};base64,${image.imageBase64}`;
+async function callGemini(obverse: InputImage, reverse?: InputImage): Promise<CoinResult> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
+
+  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+
+  checkSize(obverse);
+  if (reverse) checkSize(reverse);
+
+  const parts: any[] = [
+    { text: SYSTEM_PROMPT },
+    { text: reverse ? 'Image 1 = obverse, Image 2 = reverse. Analyze both.' : 'Analyze this coin image.' },
+    {
+      inline_data: {
+        mime_type: obverse.mimeType || 'image/jpeg',
+        data: obverse.imageBase64,
+      },
+    },
+  ];
+
+  if (reverse) {
+    parts.push({
+      inline_data: {
+        mime_type: reverse.mimeType || 'image/jpeg',
+        data: reverse.imageBase64,
+      },
+    });
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts }],
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+        },
+      }),
+    }
+  );
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Gemini error ${response.status}: ${text}`);
+  }
+
+  let payload: any;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    throw new Error('Failed to parse Gemini response JSON envelope');
+  }
+
+  const modelText = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!modelText || typeof modelText !== 'string') {
+    throw new Error('No JSON content returned by Gemini');
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(modelText);
+  } catch {
+    throw new Error('Failed to parse JSON from Gemini model output');
+  }
+
+  return normalizeResult(parsed);
 }
 
 export default async function handler(req: any, res: any) {
@@ -130,10 +143,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'obverse.imageBase64 is required' });
     }
 
-    const obverseDataUrl = toDataUrl(obverse);
-    const reverseDataUrl = reverse?.imageBase64 ? toDataUrl(reverse) : undefined;
-
-    const result = await callOpenAI(obverseDataUrl, reverseDataUrl);
+    const result = await callGemini(obverse, reverse?.imageBase64 ? reverse : undefined);
     return res.status(200).json(result);
   } catch (error: any) {
     const msg = String(error?.message || 'Unknown error');
@@ -142,8 +152,8 @@ export default async function handler(req: any, res: any) {
       return res.status(413).json({ error: 'image_too_large', message: 'Please upload a smaller image.' });
     }
 
-    if (msg.includes('insufficient_quota')) {
-      return res.status(429).json({ error: 'insufficient_quota', message: 'OpenAI quota exceeded. Check API billing/credits.' });
+    if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+      return res.status(429).json({ error: 'insufficient_quota', message: 'Gemini quota exceeded. Check API limits/billing.' });
     }
 
     return res.status(500).json({

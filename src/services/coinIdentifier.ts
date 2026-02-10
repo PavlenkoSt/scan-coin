@@ -70,10 +70,10 @@ function mapRemoteError(status: number, payload: any): string {
     return "Backend authentication failed (401). Check Vercel deployment protection.";
   if (status === 413) return "Image too large (413). Try a smaller photo.";
   if (status === 429 || message.includes("insufficient_quota")) {
-    return "OpenAI quota exceeded. Please check API billing/credits.";
+    return "AI provider quota exceeded. Please check Gemini API limits/billing.";
   }
   if (status === 500 && message.includes("insufficient_quota")) {
-    return "OpenAI quota exceeded. Please check API billing/credits.";
+    return "AI provider quota exceeded. Please check Gemini API limits/billing.";
   }
 
   return `Remote identify failed (${status})`;

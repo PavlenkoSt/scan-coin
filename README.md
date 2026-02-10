@@ -12,7 +12,7 @@ Simple Expo app for coin identification + collection tracking.
 - Open camera for live coin scanning (front + back)
 - Pick front/back coin images from gallery
 - Auto-compress and resize images before upload to avoid payload errors
-- Analyze coin (mock provider by default, OpenAI via backend in remote mode)
+- Analyze coin (mock provider by default, Gemini via backend in remote mode)
 - Save results to local collection
 - Search collection by country/denomination/year
 - Open saved coin details with estimate + confidence
