@@ -3,6 +3,13 @@ import { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useCollectionStore } from '../../src/store/collectionStore';
 
+function confidenceColor(conf: string) {
+  const c = conf.toLowerCase();
+  if (c === 'high') return '#22c55e';
+  if (c === 'medium') return '#fbbf24';
+  return '#f97316';
+}
+
 export default function CollectionScreen() {
   const coins = useCollectionStore((s) => s.coins);
   const [query, setQuery] = useState('');
@@ -47,9 +54,14 @@ export default function CollectionScreen() {
           renderItem={({ item }) => (
             <Link href={{ pathname: '/coin/[id]', params: { id: item.id } }} style={styles.row}>
               <Text style={styles.rowTitle}>{item.country || 'Unknown coin'}</Text>
-              <Text style={styles.rowMeta}>
-                {item.denomination || 'Coin'} • {item.year || 'N/A'} • {item.confidence}
-              </Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.rowMeta}>
+                  {item.denomination || 'Coin'} • {item.year || 'N/A'}
+                </Text>
+                <Text style={[styles.confidencePill, { borderColor: confidenceColor(item.confidence), color: confidenceColor(item.confidence) }]}>
+                  {item.confidence.toUpperCase()}
+                </Text>
+              </View>
             </Link>
           )}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
@@ -119,5 +131,19 @@ const styles = StyleSheet.create({
   rowMeta: {
     color: '#9ca3af',
     fontSize: 13,
+  },
+  metaRow: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  confidencePill: {
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
