@@ -9,6 +9,7 @@ import { createId } from '../src/utils/id';
 
 export default function ScanScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [savedCoinId, setSavedCoinId] = useState<string | null>(null);
   const addCoin = useCollectionStore((s) => s.addCoin);
   const router = useRouter();
 
@@ -18,6 +19,12 @@ export default function ScanScreen() {
   });
 
   const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Please allow photo library access to select a coin image.');
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,
@@ -25,6 +32,7 @@ export default function ScanScreen() {
 
     if (!result.canceled && result.assets[0]?.uri) {
       setImageUri(result.assets[0].uri);
+      setSavedCoinId(null);
       mutation.reset();
     }
   };
@@ -35,7 +43,7 @@ export default function ScanScreen() {
   };
 
   const save = () => {
-    if (!imageUri || !mutation.data) return;
+    if (!imageUri || !mutation.data || savedCoinId) return;
 
     const coin = {
       id: createId(),
@@ -45,16 +53,19 @@ export default function ScanScreen() {
     };
 
     addCoin(coin);
-    router.replace({ pathname: '/coin/[id]', params: { id: coin.id } });
+    setSavedCoinId(coin.id);
+    Alert.alert('Saved', 'Coin added to your collection.');
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Button title="Pick coin image" onPress={pickImage} />
 
-      {imageUri ? <Image source={{ uri: imageUri }} style={styles.image} /> : null}
+      {imageUri ? <Image source={{ uri: imageUri }} style={styles.image} /> : <Text style={styles.hint}>No image selected yet.</Text>}
 
       <Button title={mutation.isPending ? 'Analyzing...' : 'Analyze coin'} onPress={analyze} disabled={!imageUri || mutation.isPending} />
+
+      {mutation.isPending ? <Text style={styles.hint}>Analyzing image…</Text> : null}
 
       {mutation.data ? (
         <View style={styles.result}>
@@ -66,8 +77,18 @@ export default function ScanScreen() {
             {mutation.data.estimatedValueMin} - {mutation.data.estimatedValueMax} {mutation.data.currency}
           </Text>
           <Text>Confidence: {mutation.data.confidence}</Text>
+          <Text style={styles.disclaimer}>Estimate only — not a professional appraisal.</Text>
           <View style={{ height: 12 }} />
-          <Button title="Save to collection" onPress={save} />
+          <Button title={savedCoinId ? 'Saved' : 'Save to collection'} onPress={save} disabled={!!savedCoinId} />
+
+          {savedCoinId ? (
+            <View style={{ marginTop: 12 }}>
+              <Button
+                title="Open saved coin"
+                onPress={() => router.push({ pathname: '/coin/[id]', params: { id: savedCoinId } })}
+              />
+            </View>
+          ) : null}
         </View>
       ) : null}
     </ScrollView>
@@ -85,6 +106,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#eee',
   },
+  hint: {
+    color: '#6b7280',
+  },
   result: {
     backgroundColor: '#f9fafb',
     borderRadius: 10,
@@ -96,5 +120,10 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontWeight: '700',
     marginBottom: 6,
+  },
+  disclaimer: {
+    marginTop: 6,
+    color: '#6b7280',
+    fontSize: 12,
   },
 });
