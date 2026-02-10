@@ -1,5 +1,11 @@
 import { Confidence } from '../types/coin';
 
+export type CoinIdentificationInput = {
+  imageUri: string;
+  imageBase64?: string;
+  mimeType?: string;
+};
+
 export type CoinIdentificationResult = {
   country: string;
   denomination: string;
@@ -52,18 +58,25 @@ function normalizeApiResult(data: any): CoinIdentificationResult {
   };
 }
 
-async function identifyCoinRemote(imageUri: string): Promise<CoinIdentificationResult> {
+async function identifyCoinRemote(input: CoinIdentificationInput): Promise<CoinIdentificationResult> {
   const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL;
   if (!apiBase) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL is not set');
   }
 
-  const response = await fetch(`${apiBase}/identify-coin`, {
+  if (!input.imageBase64) {
+    throw new Error('imageBase64 is required for remote provider');
+  }
+
+  const response = await fetch(`${apiBase}/api/identify-coin`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ imageUri }),
+    body: JSON.stringify({
+      imageBase64: input.imageBase64,
+      mimeType: input.mimeType ?? 'image/jpeg',
+    }),
   });
 
   if (!response.ok) {
@@ -74,19 +87,19 @@ async function identifyCoinRemote(imageUri: string): Promise<CoinIdentificationR
   return normalizeApiResult(data);
 }
 
-async function identifyCoinMock(imageUri: string): Promise<CoinIdentificationResult> {
+async function identifyCoinMock(input: CoinIdentificationInput): Promise<CoinIdentificationResult> {
   await new Promise((resolve) => setTimeout(resolve, 900));
 
-  const hash = imageUri.length;
+  const hash = input.imageUri.length;
   return mockCatalog[hash % mockCatalog.length];
 }
 
-export async function identifyCoin(imageUri: string): Promise<CoinIdentificationResult> {
+export async function identifyCoin(input: CoinIdentificationInput): Promise<CoinIdentificationResult> {
   const provider = (process.env.EXPO_PUBLIC_COIN_PROVIDER ?? 'mock').toLowerCase();
 
   if (provider === 'remote') {
-    return identifyCoinRemote(imageUri);
+    return identifyCoinRemote(input);
   }
 
-  return identifyCoinMock(imageUri);
+  return identifyCoinMock(input);
 }

@@ -9,6 +9,8 @@ import { createId } from '../src/utils/id';
 
 export default function ScanScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | undefined>();
+  const [mimeType, setMimeType] = useState<string | undefined>();
   const [savedCoinId, setSavedCoinId] = useState<string | null>(null);
   const addCoin = useCollectionStore((s) => s.addCoin);
   const router = useRouter();
@@ -28,10 +30,14 @@ export default function ScanScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]?.uri) {
-      setImageUri(result.assets[0].uri);
+      const asset = result.assets[0];
+      setImageUri(asset.uri);
+      setImageBase64(asset.base64 ?? undefined);
+      setMimeType(asset.mimeType ?? 'image/jpeg');
       setSavedCoinId(null);
       mutation.reset();
     }
@@ -39,7 +45,7 @@ export default function ScanScreen() {
 
   const analyze = async () => {
     if (!imageUri) return;
-    await mutation.mutateAsync(imageUri);
+    await mutation.mutateAsync({ imageUri, imageBase64, mimeType });
   };
 
   const save = () => {

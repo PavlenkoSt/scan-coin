@@ -46,3 +46,4 @@ npx expo-doctor
 - `docs/02_tech_plan.md`
 - `docs/03_qa_report.md`
 - `docs/04_release_plan.md`
+- `docs/05_openai_backend_deploy.md`
