@@ -7,10 +7,17 @@ import { identifyCoin } from '../src/services/coinIdentifier';
 import { useCollectionStore } from '../src/store/collectionStore';
 import { createId } from '../src/utils/id';
 
+type CoinSide = 'obverse' | 'reverse';
+
+type SideImage = {
+  uri: string;
+  base64?: string;
+  mimeType?: string;
+};
+
 export default function ScanScreen() {
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | undefined>();
-  const [mimeType, setMimeType] = useState<string | undefined>();
+  const [obverse, setObverse] = useState<SideImage | null>(null);
+  const [reverse, setReverse] = useState<SideImage | null>(null);
   const [savedCoinId, setSavedCoinId] = useState<string | null>(null);
   const addCoin = useCollectionStore((s) => s.addCoin);
   const router = useRouter();
@@ -20,15 +27,21 @@ export default function ScanScreen() {
     onError: () => Alert.alert('Scan failed', 'Please try another photo.'),
   });
 
-  const applyPickedAsset = (asset: ImagePicker.ImagePickerAsset) => {
-    setImageUri(asset.uri);
-    setImageBase64(asset.base64 ?? undefined);
-    setMimeType(asset.mimeType ?? 'image/jpeg');
+  const applyPickedAsset = (side: CoinSide, asset: ImagePicker.ImagePickerAsset) => {
+    const payload: SideImage = {
+      uri: asset.uri,
+      base64: asset.base64 ?? undefined,
+      mimeType: asset.mimeType ?? 'image/jpeg',
+    };
+
+    if (side === 'obverse') setObverse(payload);
+    else setReverse(payload);
+
     setSavedCoinId(null);
     mutation.reset();
   };
 
-  const pickFromGallery = async () => {
+  const pickFromGallery = async (side: CoinSide) => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission required', 'Please allow photo library access to select a coin image.');
@@ -41,12 +54,10 @@ export default function ScanScreen() {
       base64: true,
     });
 
-    if (!result.canceled && result.assets[0]) {
-      applyPickedAsset(result.assets[0]);
-    }
+    if (!result.canceled && result.assets[0]) applyPickedAsset(side, result.assets[0]);
   };
 
-  const captureWithCamera = async () => {
+  const captureWithCamera = async (side: CoinSide) => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission required', 'Please allow camera access to scan coins.');
@@ -60,23 +71,38 @@ export default function ScanScreen() {
       cameraType: ImagePicker.CameraType.back,
     });
 
-    if (!result.canceled && result.assets[0]) {
-      applyPickedAsset(result.assets[0]);
-    }
+    if (!result.canceled && result.assets[0]) applyPickedAsset(side, result.assets[0]);
   };
 
   const analyze = async () => {
-    if (!imageUri) return;
-    await mutation.mutateAsync({ imageUri, imageBase64, mimeType });
+    if (!obverse) {
+      Alert.alert('Obverse required', 'Please capture or select the front side first.');
+      return;
+    }
+
+    await mutation.mutateAsync({
+      obverse: {
+        imageUri: obverse.uri,
+        imageBase64: obverse.base64,
+        mimeType: obverse.mimeType,
+      },
+      reverse: reverse
+        ? {
+            imageUri: reverse.uri,
+            imageBase64: reverse.base64,
+            mimeType: reverse.mimeType,
+          }
+        : undefined,
+    });
   };
 
   const save = () => {
-    if (!imageUri || !mutation.data || savedCoinId) return;
+    if (!obverse || !mutation.data || savedCoinId) return;
 
     const coin = {
       id: createId(),
       createdAt: new Date().toISOString(),
-      imageUri,
+      imageUri: obverse.uri,
       ...mutation.data,
     };
 
@@ -87,22 +113,33 @@ export default function ScanScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.hint}>Tip: center the coin and use good lighting for better results.</Text>
+      <Text style={styles.hint}>Tip: capture both sides in good lighting for better identification.</Text>
 
+      <Text style={styles.sectionTitle}>Front (Obverse) — required</Text>
       <View style={styles.row}>
         <View style={styles.buttonWrap}>
-          <Button title="Open camera" onPress={captureWithCamera} />
+          <Button title="Camera (front)" onPress={() => captureWithCamera('obverse')} />
         </View>
         <View style={styles.buttonWrap}>
-          <Button title="Choose from gallery" onPress={pickFromGallery} />
+          <Button title="Gallery (front)" onPress={() => pickFromGallery('obverse')} />
         </View>
       </View>
+      {obverse ? <Image source={{ uri: obverse.uri }} style={styles.image} /> : <Text style={styles.hint}>No front image selected.</Text>}
 
-      {imageUri ? <Image source={{ uri: imageUri }} style={styles.image} /> : <Text style={styles.hint}>No image selected yet.</Text>}
+      <Text style={styles.sectionTitle}>Back (Reverse) — optional but recommended</Text>
+      <View style={styles.row}>
+        <View style={styles.buttonWrap}>
+          <Button title="Camera (back)" onPress={() => captureWithCamera('reverse')} />
+        </View>
+        <View style={styles.buttonWrap}>
+          <Button title="Gallery (back)" onPress={() => pickFromGallery('reverse')} />
+        </View>
+      </View>
+      {reverse ? <Image source={{ uri: reverse.uri }} style={styles.image} /> : <Text style={styles.hint}>No back image selected.</Text>}
 
-      <Button title={mutation.isPending ? 'Analyzing...' : 'Analyze coin'} onPress={analyze} disabled={!imageUri || mutation.isPending} />
+      <Button title={mutation.isPending ? 'Analyzing...' : 'Analyze coin'} onPress={analyze} disabled={!obverse || mutation.isPending} />
 
-      {mutation.isPending ? <Text style={styles.hint}>Analyzing image…</Text> : null}
+      {mutation.isPending ? <Text style={styles.hint}>Analyzing image(s)…</Text> : null}
 
       {mutation.data ? (
         <View style={styles.result}>
@@ -143,6 +180,10 @@ const styles = StyleSheet.create({
   },
   buttonWrap: {
     flex: 1,
+  },
+  sectionTitle: {
+    fontWeight: '700',
+    marginTop: 6,
   },
   image: {
     width: '100%',

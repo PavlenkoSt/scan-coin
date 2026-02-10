@@ -7,10 +7,11 @@ This repo now includes a serverless endpoint:
 It accepts:
 ```json
 {
-  "imageBase64": "...",
-  "mimeType": "image/jpeg"
+  "obverse": { "imageBase64": "...", "mimeType": "image/jpeg" },
+  "reverse": { "imageBase64": "...", "mimeType": "image/jpeg" }
 }
 ```
+`reverse` is optional.
 
 Returns JSON:
 ```json
@@ -76,5 +77,5 @@ After deploy:
 ```bash
 curl -X POST https://YOUR-VERCEL-URL/api/identify-coin \
   -H 'content-type: application/json' \
-  -d '{"imageBase64":"<base64>","mimeType":"image/jpeg"}'
+  -d '{"obverse":{"imageBase64":"<base64>","mimeType":"image/jpeg"}}'
 ```

@@ -8,10 +8,16 @@ type OpenAICoinResult = {
   confidence: 'low' | 'medium' | 'high';
 };
 
-const MAX_BASE64_BYTES = 4_000_000; // ~4MB raw payload safety cap
+type InputImage = {
+  imageBase64: string;
+  mimeType?: string;
+};
+
+const MAX_BASE64_BYTES = 4_000_000;
 
 const SYSTEM_PROMPT = `You are a conservative coin identification assistant.
-Use the image to infer likely coin identity and a rough value range.
+You may receive obverse and reverse images of the same coin.
+Use both sides when available to infer likely coin identity and rough value range.
 Rules:
 1) If uncertain, use "Unknown" fields and confidence "low".
 2) Never output guaranteed prices. Provide broad realistic ranges.
@@ -48,13 +54,25 @@ function normalizeResult(raw: any): OpenAICoinResult {
   };
 }
 
-async function callOpenAI(imageDataUrl: string): Promise<OpenAICoinResult> {
+async function callOpenAI(obverseDataUrl: string, reverseDataUrl?: string): Promise<OpenAICoinResult> {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not set');
-  }
+  if (!apiKey) throw new Error('OPENAI_API_KEY is not set');
 
   const model = process.env.OPENAI_VISION_MODEL || 'gpt-4o-mini';
+
+  const content: any[] = [
+    {
+      type: 'text',
+      text: reverseDataUrl
+        ? 'Identify this coin from both sides (obverse and reverse) and estimate a rough value range. Return JSON only.'
+        : 'Identify this coin and estimate a rough value range. Return JSON only.',
+    },
+    { type: 'image_url', image_url: { url: obverseDataUrl } },
+  ];
+
+  if (reverseDataUrl) {
+    content.push({ type: 'image_url', image_url: { url: reverseDataUrl } });
+  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -67,20 +85,8 @@ async function callOpenAI(imageDataUrl: string): Promise<OpenAICoinResult> {
       temperature: 0.1,
       response_format: { type: 'json_object' },
       messages: [
-        {
-          role: 'system',
-          content: SYSTEM_PROMPT,
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Identify this coin and estimate a rough value range. Return JSON only.',
-            },
-            { type: 'image_url', image_url: { url: imageDataUrl } },
-          ],
-        },
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content },
       ],
     }),
   });
@@ -91,15 +97,12 @@ async function callOpenAI(imageDataUrl: string): Promise<OpenAICoinResult> {
   }
 
   const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content;
-
-  if (!content || typeof content !== 'string') {
-    throw new Error('No JSON content returned by OpenAI');
-  }
+  const msg = data?.choices?.[0]?.message?.content;
+  if (!msg || typeof msg !== 'string') throw new Error('No JSON content returned by OpenAI');
 
   let parsed: any;
   try {
-    parsed = JSON.parse(content);
+    parsed = JSON.parse(msg);
   } catch {
     throw new Error('Failed to parse JSON from OpenAI output');
   }
@@ -107,30 +110,36 @@ async function callOpenAI(imageDataUrl: string): Promise<OpenAICoinResult> {
   return normalizeResult(parsed);
 }
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+function toDataUrl(image: InputImage): string {
+  const approxBytes = Math.ceil((image.imageBase64.length * 3) / 4);
+  if (approxBytes > MAX_BASE64_BYTES) {
+    throw new Error('image_too_large');
   }
 
-  try {
-    const { imageBase64, mimeType } = req.body || {};
+  const safeMimeType = typeof image.mimeType === 'string' ? image.mimeType : 'image/jpeg';
+  return `data:${safeMimeType};base64,${image.imageBase64}`;
+}
 
-    if (!imageBase64 || typeof imageBase64 !== 'string') {
-      return res.status(400).json({ error: 'imageBase64 is required' });
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  try {
+    const { obverse, reverse } = req.body || {};
+
+    if (!obverse?.imageBase64 || typeof obverse.imageBase64 !== 'string') {
+      return res.status(400).json({ error: 'obverse.imageBase64 is required' });
     }
 
-    // Rough decoded size check to protect function memory/time.
-    const approxBytes = Math.ceil((imageBase64.length * 3) / 4);
-    if (approxBytes > MAX_BASE64_BYTES) {
+    const obverseDataUrl = toDataUrl(obverse);
+    const reverseDataUrl = reverse?.imageBase64 ? toDataUrl(reverse) : undefined;
+
+    const result = await callOpenAI(obverseDataUrl, reverseDataUrl);
+    return res.status(200).json(result);
+  } catch (error: any) {
+    if (String(error?.message || '').includes('image_too_large')) {
       return res.status(413).json({ error: 'image_too_large', message: 'Please upload a smaller image.' });
     }
 
-    const safeMimeType = typeof mimeType === 'string' ? mimeType : 'image/jpeg';
-    const imageDataUrl = `data:${safeMimeType};base64,${imageBase64}`;
-
-    const result = await callOpenAI(imageDataUrl);
-    return res.status(200).json(result);
-  } catch (error: any) {
     return res.status(500).json({
       error: 'identify_failed',
       message: error?.message || 'Unknown error',

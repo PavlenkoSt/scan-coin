@@ -9,8 +9,8 @@ Simple Expo app for coin identification + collection tracking.
 - ✅ Test-ready MVP on `main`
 
 ## Features
-- Open camera for live coin scanning
-- Pick coin image from gallery
+- Open camera for live coin scanning (front + back)
+- Pick front/back coin images from gallery
 - Analyze coin (mock provider by default, OpenAI via backend in remote mode)
 - Save results to local collection
 - Search collection by country/denomination/year

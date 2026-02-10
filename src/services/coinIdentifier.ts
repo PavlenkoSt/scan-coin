@@ -1,9 +1,14 @@
 import { Confidence } from '../types/coin';
 
-export type CoinIdentificationInput = {
+export type CoinSideImage = {
   imageUri: string;
   imageBase64?: string;
   mimeType?: string;
+};
+
+export type CoinIdentificationInput = {
+  obverse: CoinSideImage;
+  reverse?: CoinSideImage;
 };
 
 export type CoinIdentificationResult = {
@@ -64,8 +69,8 @@ async function identifyCoinRemote(input: CoinIdentificationInput): Promise<CoinI
     throw new Error('EXPO_PUBLIC_API_BASE_URL is not set');
   }
 
-  if (!input.imageBase64) {
-    throw new Error('imageBase64 is required for remote provider');
+  if (!input.obverse.imageBase64) {
+    throw new Error('obverse.imageBase64 is required for remote provider');
   }
 
   const response = await fetch(`${apiBase}/api/identify-coin`, {
@@ -74,8 +79,16 @@ async function identifyCoinRemote(input: CoinIdentificationInput): Promise<CoinI
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      imageBase64: input.imageBase64,
-      mimeType: input.mimeType ?? 'image/jpeg',
+      obverse: {
+        imageBase64: input.obverse.imageBase64,
+        mimeType: input.obverse.mimeType ?? 'image/jpeg',
+      },
+      reverse: input.reverse?.imageBase64
+        ? {
+            imageBase64: input.reverse.imageBase64,
+            mimeType: input.reverse.mimeType ?? 'image/jpeg',
+          }
+        : undefined,
     }),
   });
 
@@ -90,7 +103,8 @@ async function identifyCoinRemote(input: CoinIdentificationInput): Promise<CoinI
 async function identifyCoinMock(input: CoinIdentificationInput): Promise<CoinIdentificationResult> {
   await new Promise((resolve) => setTimeout(resolve, 900));
 
-  const hash = input.imageUri.length;
+  const reverseBonus = input.reverse?.imageUri ? 17 : 0;
+  const hash = input.obverse.imageUri.length + reverseBonus;
   return mockCatalog[hash % mockCatalog.length];
 }
 
