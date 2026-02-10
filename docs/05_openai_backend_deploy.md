@@ -31,7 +31,7 @@ Returns JSON:
 2. Import `PavlenkoSt/scan-coin`
 3. Add environment variables:
    - `GEMINI_API_KEY` = your Gemini API key
-   - `GEMINI_MODEL` = `gemini-1.5-flash` (default)
+   - `GEMINI_MODEL` = `gemini-2.0-flash` (recommended default)
 4. Deploy
 
 ## Point app to backend
