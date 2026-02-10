@@ -65,7 +65,8 @@ async function callGemini(obverse: InputImage, reverse?: InputImage): Promise<Co
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
 
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const configured = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const modelsToTry = Array.from(new Set([configured, 'gemini-2.0-flash', 'gemini-1.5-flash-latest']));
 
   checkSize(obverse);
   if (reverse) checkSize(reverse);
@@ -90,47 +91,57 @@ async function callGemini(obverse: InputImage, reverse?: InputImage): Promise<Co
     });
   }
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts }],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: 'application/json',
-        },
-      }),
+  let lastError = 'Unknown Gemini error';
+
+  for (const model of modelsToTry) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts }],
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: 'application/json',
+          },
+        }),
+      }
+    );
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      lastError = `Gemini error ${response.status}: ${text}`;
+      if (response.status === 404) {
+        continue;
+      }
+      throw new Error(lastError);
     }
-  );
 
-  const text = await response.text();
+    let payload: any;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      throw new Error('Failed to parse Gemini response JSON envelope');
+    }
 
-  if (!response.ok) {
-    throw new Error(`Gemini error ${response.status}: ${text}`);
+    const modelText = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!modelText || typeof modelText !== 'string') {
+      throw new Error('No JSON content returned by Gemini');
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(modelText);
+    } catch {
+      throw new Error('Failed to parse JSON from Gemini model output');
+    }
+
+    return normalizeResult(parsed);
   }
 
-  let payload: any;
-  try {
-    payload = JSON.parse(text);
-  } catch {
-    throw new Error('Failed to parse Gemini response JSON envelope');
-  }
-
-  const modelText = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!modelText || typeof modelText !== 'string') {
-    throw new Error('No JSON content returned by Gemini');
-  }
-
-  let parsed: any;
-  try {
-    parsed = JSON.parse(modelText);
-  } catch {
-    throw new Error('Failed to parse JSON from Gemini model output');
-  }
-
-  return normalizeResult(parsed);
+  throw new Error(lastError);
 }
 
 export default async function handler(req: any, res: any) {

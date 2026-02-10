@@ -93,6 +93,7 @@ export default function ScanScreen() {
   const [savedCoinId, setSavedCoinId] = useState<string | null>(null);
   const addCoin = useCollectionStore((s) => s.addCoin);
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
   const resultAnim = useRef(new Animated.Value(0)).current;
 
   const mutation = useMutation({
@@ -114,6 +115,9 @@ export default function ScanScreen() {
     if (mutation.data) {
       resultAnim.setValue(0);
       Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, friction: 7, tension: 70 }).start();
+      setTimeout(() => {
+        scrollRef.current?.scrollToEnd({ animated: true });
+      }, 120);
     }
   }, [mutation.data, resultAnim]);
 
@@ -167,7 +171,15 @@ export default function ScanScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      ref={scrollRef}
+      contentContainerStyle={styles.container}
+      onContentSizeChange={() => {
+        if (mutation.data) {
+          scrollRef.current?.scrollToEnd({ animated: true });
+        }
+      }}
+    >
       <Text style={styles.pageTitle}>Scan Coin</Text>
       <Text style={styles.hint}>Capture both sides in good lighting for better identification.</Text>
 
