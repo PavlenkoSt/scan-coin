@@ -1,6 +1,6 @@
-# OpenAI Vision Backend (Cheap + Easy via Vercel)
+# Gemini Vision Backend (Cheap + Easy via Vercel)
 
-This repo now includes a serverless endpoint:
+This repo includes a serverless endpoint:
 - `POST /api/identify-coin`
 - file: `api/identify-coin.ts`
 
@@ -26,56 +26,30 @@ Returns JSON:
 }
 ```
 
----
-
-## 1) Deploy to Vercel
-
-### Option A — Vercel dashboard (easiest)
+## Deploy to Vercel
 1. Go to https://vercel.com/new
-2. Import GitHub repo: `PavlenkoSt/scan-coin`
-3. Framework preset: **Other** (or auto-detect)
-4. Add Environment Variables:
-   - `OPENAI_API_KEY` = your OpenAI API key
-   - `OPENAI_VISION_MODEL` = `gpt-4o-mini` (cheaper default)
-5. Deploy
+2. Import `PavlenkoSt/scan-coin`
+3. Add environment variables:
+   - `GEMINI_API_KEY` = your Gemini API key
+   - `GEMINI_MODEL` = `gemini-1.5-flash` (default)
+4. Deploy
 
-You’ll get URL like:
-`https://scan-coin.vercel.app`
-
----
-
-## 2) Point mobile app to backend
-
-In app `.env` (not committed):
+## Point app to backend
+In app `.env`:
 ```bash
 EXPO_PUBLIC_COIN_PROVIDER=remote
 EXPO_PUBLIC_API_BASE_URL=https://scan-coin.vercel.app
 ```
 
-Then restart Expo:
+Restart Expo:
 ```bash
 npm run start
 ```
 
----
+## Cost tips
+- `gemini-1.5-flash` is usually cheap and often has free quota limits for testing
+- Keep image compression enabled (already implemented)
 
-## 3) Cost tips
-- Use `gpt-4o-mini` (already default in backend)
-- Resize/compress images client-side (we already use quality 0.8)
-- Add simple rate limiting later if traffic grows
-
----
-
-## 4) Security notes
-- Keep `OPENAI_API_KEY` only in Vercel env vars (server-side)
-- Never put OpenAI API key in Expo `EXPO_PUBLIC_*` vars
-
----
-
-## 5) Quick backend test
-After deploy:
-```bash
-curl -X POST https://YOUR-VERCEL-URL/api/identify-coin \
-  -H 'content-type: application/json' \
-  -d '{"obverse":{"imageBase64":"<base64>","mimeType":"image/jpeg"}}'
-```
+## Security
+- Keep `GEMINI_API_KEY` only in Vercel env vars
+- Never put provider keys in Expo `EXPO_PUBLIC_*` vars
