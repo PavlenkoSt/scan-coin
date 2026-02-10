@@ -1,6 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -23,14 +24,19 @@ const COMPRESS = 0.6;
 function ActionButton({
   title,
   onPress,
+  icon,
   variant = 'secondary',
   disabled,
 }: {
   title: string;
   onPress: () => void | Promise<void>;
+  icon?: keyof typeof Ionicons.glyphMap;
   variant?: 'primary' | 'secondary' | 'ghost';
   disabled?: boolean;
 }) {
+  const isPrimary = variant === 'primary';
+  const textColor = isPrimary ? '#111827' : '#e5e7eb';
+
   return (
     <Pressable
       onPress={onPress}
@@ -43,15 +49,18 @@ function ActionButton({
         (pressed || disabled) && styles.actionBtnPressed,
       ]}
     >
-      <Text
-        style={[
-          styles.actionBtnText,
-          variant === 'primary' && styles.actionBtnTextPrimary,
-          variant !== 'primary' && styles.actionBtnTextSecondary,
-        ]}
-      >
-        {title}
-      </Text>
+      <View style={styles.actionContent}>
+        {icon ? <Ionicons name={icon} size={16} color={textColor} /> : null}
+        <Text
+          style={[
+            styles.actionBtnText,
+            variant === 'primary' && styles.actionBtnTextPrimary,
+            variant !== 'primary' && styles.actionBtnTextSecondary,
+          ]}
+        >
+          {title}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -165,8 +174,8 @@ export default function ScanScreen() {
       <View style={styles.block}>
         <Text style={styles.sectionTitle}>Front (Obverse) — required</Text>
         <View style={styles.row}>
-          <View style={styles.buttonWrap}><ActionButton title="Camera (front)" onPress={() => captureWithCamera('obverse')} /></View>
-          <View style={styles.buttonWrap}><ActionButton title="Gallery (front)" onPress={() => pickFromGallery('obverse')} variant="ghost" /></View>
+          <View style={styles.buttonWrap}><ActionButton icon="camera-outline" title="Camera (front)" onPress={() => captureWithCamera('obverse')} /></View>
+          <View style={styles.buttonWrap}><ActionButton icon="images-outline" title="Gallery (front)" onPress={() => pickFromGallery('obverse')} variant="ghost" /></View>
         </View>
         {obverse ? <Image source={{ uri: obverse.uri }} style={styles.image} /> : <Text style={styles.hint}>No front image selected.</Text>}
       </View>
@@ -174,13 +183,13 @@ export default function ScanScreen() {
       <View style={styles.block}>
         <Text style={styles.sectionTitle}>Back (Reverse) — optional</Text>
         <View style={styles.row}>
-          <View style={styles.buttonWrap}><ActionButton title="Camera (back)" onPress={() => captureWithCamera('reverse')} /></View>
-          <View style={styles.buttonWrap}><ActionButton title="Gallery (back)" onPress={() => pickFromGallery('reverse')} variant="ghost" /></View>
+          <View style={styles.buttonWrap}><ActionButton icon="camera-outline" title="Camera (back)" onPress={() => captureWithCamera('reverse')} /></View>
+          <View style={styles.buttonWrap}><ActionButton icon="images-outline" title="Gallery (back)" onPress={() => pickFromGallery('reverse')} variant="ghost" /></View>
         </View>
         {reverse ? <Image source={{ uri: reverse.uri }} style={styles.image} /> : <Text style={styles.hint}>No back image selected.</Text>}
       </View>
 
-      <ActionButton title={mutation.isPending ? 'Analyzing...' : 'Analyze coin'} onPress={analyze} variant="primary" disabled={!obverse || mutation.isPending} />
+      <ActionButton icon="sparkles-outline" title={mutation.isPending ? 'Analyzing...' : 'Analyze coin'} onPress={analyze} variant="primary" disabled={!obverse || mutation.isPending} />
       {mutation.isPending ? <Text style={styles.hint}>Analyzing image(s)…</Text> : null}
 
       {mutation.data ? (
@@ -204,10 +213,10 @@ export default function ScanScreen() {
           <Text style={styles.resultLine}>Confidence: {mutation.data.confidence}</Text>
           <Text style={styles.disclaimer}>Estimate only — not a professional appraisal.</Text>
           <View style={{ height: 12 }} />
-          <ActionButton title={savedCoinId ? 'Saved' : 'Save to collection'} onPress={save} variant="primary" disabled={!!savedCoinId} />
+          <ActionButton icon="bookmark-outline" title={savedCoinId ? 'Saved' : 'Save to collection'} onPress={save} variant="primary" disabled={!!savedCoinId} />
           {savedCoinId ? (
             <View style={{ marginTop: 10 }}>
-              <ActionButton title="Open saved coin" onPress={() => router.push({ pathname: '/coin/[id]', params: { id: savedCoinId } })} />
+              <ActionButton icon="open-outline" title="Open saved coin" onPress={() => router.push({ pathname: '/coin/[id]', params: { id: savedCoinId } })} />
             </View>
           ) : null}
         </Animated.View>
@@ -227,6 +236,7 @@ const styles = StyleSheet.create({
   hint: { color: '#94a3b8' },
 
   actionBtn: { borderRadius: 12, minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  actionContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   actionBtnPrimary: { backgroundColor: '#fbbf24' },
   actionBtnSecondary: { backgroundColor: '#1f2937', borderWidth: 1, borderColor: '#334155' },
   actionBtnGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#334155' },
