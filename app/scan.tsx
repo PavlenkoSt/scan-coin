@@ -1,9 +1,10 @@
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as Haptics from 'expo-haptics';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Button, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Button, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { identifyCoin } from '../src/services/coinIdentifier';
 import { useCollectionStore } from '../src/store/collectionStore';
 import { createId } from '../src/utils/id';
@@ -47,10 +48,18 @@ export default function ScanScreen() {
   const [savedCoinId, setSavedCoinId] = useState<string | null>(null);
   const addCoin = useCollectionStore((s) => s.addCoin);
   const router = useRouter();
+  const resultAnim = useRef(new Animated.Value(0)).current;
 
   const mutation = useMutation({
     mutationFn: identifyCoin,
-    onError: (error: any) => {
+    onMutate: async () => {
+      await Haptics.selectionAsync();
+    },
+    onSuccess: async () => {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: async (error: any) => {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const message = String(error?.message || '');
       if (message.includes('(413)')) {
         Alert.alert('Image too large', 'Please retake with better framing or use lower resolution image.');
@@ -60,12 +69,25 @@ export default function ScanScreen() {
     },
   });
 
+  useEffect(() => {
+    if (mutation.data) {
+      resultAnim.setValue(0);
+      Animated.spring(resultAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        friction: 7,
+        tension: 70,
+      }).start();
+    }
+  }, [mutation.data, resultAnim]);
+
   const applyPickedAsset = async (side: CoinSide, asset: ImagePicker.ImagePickerAsset) => {
     const payload = await optimizeImage(asset);
 
     if (side === 'obverse') setObverse(payload);
     else setReverse(payload);
 
+    await Haptics.selectionAsync();
     setSavedCoinId(null);
     mutation.reset();
   };
@@ -125,7 +147,7 @@ export default function ScanScreen() {
     });
   };
 
-  const save = () => {
+  const save = async () => {
     if (!obverse || !mutation.data || savedCoinId) return;
 
     const coin = {
@@ -137,6 +159,7 @@ export default function ScanScreen() {
 
     addCoin(coin);
     setSavedCoinId(coin.id);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert('Saved', 'Coin added to your collection.');
   };
 
@@ -175,7 +198,28 @@ export default function ScanScreen() {
       {mutation.isPending ? <Text style={styles.hint}>Analyzing image(s)…</Text> : null}
 
       {mutation.data ? (
-        <View style={styles.result}>
+        <Animated.View
+          style={[
+            styles.result,
+            {
+              opacity: resultAnim,
+              transform: [
+                {
+                  translateY: resultAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [12, 0],
+                  }),
+                },
+                {
+                  scale: resultAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.98, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <Text style={styles.resultTitle}>Result</Text>
           <Text style={styles.resultLine}>{mutation.data.country}</Text>
           <Text style={styles.resultLine}>{mutation.data.denomination}</Text>
@@ -193,7 +237,7 @@ export default function ScanScreen() {
               <Button title="Open saved coin" onPress={() => router.push({ pathname: '/coin/[id]', params: { id: savedCoinId } })} />
             </View>
           ) : null}
-        </View>
+        </Animated.View>
       ) : null}
     </ScrollView>
   );
