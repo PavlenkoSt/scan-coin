@@ -7,7 +7,14 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: '#0b1220' },
+          headerTitleStyle: { color: '#fff', fontWeight: '700' },
+          headerTintColor: '#fff',
+          contentStyle: { backgroundColor: '#0b1220' },
+        }}
+      >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="scan" options={{ title: 'Scan Coin' }} />
         <Stack.Screen name="coin/[id]" options={{ title: 'Coin Details' }} />

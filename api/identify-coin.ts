@@ -13,7 +13,7 @@ type InputImage = {
   mimeType?: string;
 };
 
-const MAX_BASE64_BYTES = 4_000_000;
+const MAX_BASE64_BYTES = 6_000_000;
 
 const SYSTEM_PROMPT = `You are a conservative coin identification assistant.
 You may receive obverse and reverse images of the same coin.
