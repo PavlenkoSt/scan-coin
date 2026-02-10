@@ -1,4 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -15,6 +16,31 @@ type SideImage = {
   mimeType?: string;
 };
 
+const TARGET_WIDTH = 1200;
+const COMPRESS = 0.6;
+
+async function optimizeImage(asset: ImagePicker.ImagePickerAsset): Promise<SideImage> {
+  const sourceUri = asset.uri;
+  const width = asset.width ?? TARGET_WIDTH;
+  const shouldResize = width > TARGET_WIDTH;
+
+  const manipulated = await ImageManipulator.manipulateAsync(
+    sourceUri,
+    shouldResize ? [{ resize: { width: TARGET_WIDTH } }] : [],
+    {
+      compress: COMPRESS,
+      format: ImageManipulator.SaveFormat.JPEG,
+      base64: true,
+    }
+  );
+
+  return {
+    uri: manipulated.uri,
+    base64: manipulated.base64 ?? undefined,
+    mimeType: 'image/jpeg',
+  };
+}
+
 export default function ScanScreen() {
   const [obverse, setObverse] = useState<SideImage | null>(null);
   const [reverse, setReverse] = useState<SideImage | null>(null);
@@ -24,15 +50,18 @@ export default function ScanScreen() {
 
   const mutation = useMutation({
     mutationFn: identifyCoin,
-    onError: () => Alert.alert('Scan failed', 'Please try another photo.'),
+    onError: (error: any) => {
+      const message = String(error?.message || '');
+      if (message.includes('(413)')) {
+        Alert.alert('Image too large', 'Please retake with better framing or use lower resolution image.');
+        return;
+      }
+      Alert.alert('Scan failed', 'Please try another photo.');
+    },
   });
 
-  const applyPickedAsset = (side: CoinSide, asset: ImagePicker.ImagePickerAsset) => {
-    const payload: SideImage = {
-      uri: asset.uri,
-      base64: asset.base64 ?? undefined,
-      mimeType: asset.mimeType ?? 'image/jpeg',
-    };
+  const applyPickedAsset = async (side: CoinSide, asset: ImagePicker.ImagePickerAsset) => {
+    const payload = await optimizeImage(asset);
 
     if (side === 'obverse') setObverse(payload);
     else setReverse(payload);
@@ -50,11 +79,11 @@ export default function ScanScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.8,
-      base64: true,
+      quality: COMPRESS,
+      base64: false,
     });
 
-    if (!result.canceled && result.assets[0]) applyPickedAsset(side, result.assets[0]);
+    if (!result.canceled && result.assets[0]) await applyPickedAsset(side, result.assets[0]);
   };
 
   const captureWithCamera = async (side: CoinSide) => {
@@ -66,12 +95,12 @@ export default function ScanScreen() {
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
-      quality: 0.8,
-      base64: true,
+      quality: COMPRESS,
+      base64: false,
       cameraType: ImagePicker.CameraType.back,
     });
 
-    if (!result.canceled && result.assets[0]) applyPickedAsset(side, result.assets[0]);
+    if (!result.canceled && result.assets[0]) await applyPickedAsset(side, result.assets[0]);
   };
 
   const analyze = async () => {
